@@ -25,6 +25,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <net/net.h>
+#include <net/netdb.h>
 
 #include <zlib.h>
 #include <zip.h>
@@ -835,6 +836,37 @@ void release_all() {
 
 }
 
+void GetPrimaryIp(char* buffer, size_t buflen) 
+{
+    // assert(buflen >= 16);
+
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    // assert(sock != -1);
+
+    const char* kGoogleDnsIp = "8.8.8.8";
+    uint16_t kDnsPort = 53;
+    struct sockaddr_in serv;
+    memset(&serv, 0, sizeof(serv));
+    serv.sin_family = AF_INET;
+    serv.sin_addr.s_addr = inet_addr(kGoogleDnsIp);
+    serv.sin_port = htons(kDnsPort);
+
+    int err = connect(sock, (const struct sockaddr*) &serv, sizeof(serv));
+    // assert(err != -1);
+
+    struct sockaddr_in name;
+    socklen_t namelen = sizeof(name);
+    err = getsockname(sock, (struct sockaddr*) &name, &namelen);
+    // assert(err != -1);
+    (void)err;
+
+    const char* p = inet_ntop(AF_INET, &name.sin_addr, buffer, buflen);
+    // assert(p);
+    (void)p;
+
+    shutdown(sock, SHUT_RDWR);
+}
+
 
 int main(int argc, const char* argv[], const char* envp[])
 {
@@ -909,6 +941,11 @@ int main(int argc, const char* argv[], const char* envp[])
 
 #define continueloop() { close(c); goto reloop; }
 
+    usleep(20000);
+
+    char ip[100];
+    GetPrimaryIp(ip, 100);
+
 reloop:
 
     msg_two[0]   = 0;
@@ -916,14 +953,13 @@ reloop:
 	while (1) {
 		
         usleep(20000);
-		
         if(flag_exit) break;
 
         if(my_socket == -1) continue;
 
         color_two = 0xffffffff;
 
-		sprintf(msg_two, "Waiting for connection...");
+		sprintf(msg_two, "Host: %s, waiting for connection...", ip);
 		
 		int c = accept(my_socket, NULL, NULL);
 
@@ -1076,8 +1112,8 @@ reloop:
 				#define ENDS_WITH(needle) \
 					(strlen(filename) >= strlen(needle) && !strcasecmp(filename + strlen(filename) - strlen(needle), needle))
 
-				/*if (ENDS_WITH("EBOOT.BIN") || ENDS_WITH(".self"))
-					strcpy(bootpath, path);*/
+				//if (ENDS_WITH("EBOOT.BIN") || ENDS_WITH(".self"))
+				//	strcpy(bootpath, path);
 
 				if (filename[strlen(filename) - 1] != '/') {
 					struct zip_stat st;

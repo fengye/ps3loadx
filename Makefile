@@ -39,7 +39,8 @@ PKGFILES	:=	$(CURDIR)/pkgfiles
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS		:=	-lzip -lz -lfont3d -ltiny3d -lgcm_sys -lsysutil -lio -lm -lpngdec -ljpgdec -lnet -lsysmodule
+# Note: the order of the linking libraries seems important. Have to put font3d and tiny3d in the front to avoid instant crash
+LIBS		:=	-lfont3d -ltiny3d -lrsx -lsimdmath -lgcm_sys -lio -lsysutil -lrt -llv2 -lpngdec -ljpgdec -lsysmodule -lm -lzip -lz -lnet
 
 
 #---------------------------------------------------------------------------------
@@ -135,6 +136,18 @@ clean:
 #---------------------------------------------------------------------------------
 run:
 	ps3load $(OUTPUT).self
+
+%.pkg: %.self
+	echo building pkg with reload.elf ... $(notdir $@)
+	mkdir -p $(BUILDDIR)/pkg/USRDIR
+	cp $(ICON0) $(BUILDDIR)/pkg/ICON0.PNG
+	cp $(BUILDDIR)/../$(TARGET).self $(BUILDDIR)/pkg/RELOAD.SELF
+	$(SELF_NPDRM) $(BUILDDIR)/$(basename $(notdir $<)).elf $(BUILDDIR)/pkg/USRDIR/EBOOT.BIN $(CONTENTID) >> /dev/null
+	$(SFO) --title "$(TITLE)" --appid "$(APPID)" -f $(SFOXML) $(BUILDDIR)/pkg/PARAM.SFO
+	if [ -n "$(PKGFILES)" -a -d "$(PKGFILES)" ]; then cp -rf $(PKGFILES)/* $(BUILDDIR)/pkg/; fi
+	$(PKG) --contentid $(CONTENTID) $(BUILDDIR)/pkg/ $@ >> /dev/null
+	cp $@ $(basename $@).gnpdrm.pkg
+	$(PACKAGE_FINALIZE) $(basename $@).gnpdrm.pkg
 
 #---------------------------------------------------------------------------------
 pkg:	$(BUILD) $(OUTPUT).pkg
